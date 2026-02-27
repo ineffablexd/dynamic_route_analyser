@@ -1,0 +1,8 @@
+[general]
+name=Smart Dynamic Route Checker (UTM Meters)
+description=Dynamic vertex angles and segment lengths always in meters (UTM based)
+version=3.4
+qgisMinimumVersion=3.0
+author=Smart Plugin
+email=none@example.com
+category=Analysis
