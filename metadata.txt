@@ -1,13 +1,18 @@
 [general]
 name = Smart Dynamic Route Analyser
-qgisMinimumVersion=3.0
+qgisMinimumVersion = 3.0
+version = 1.1.1
 description = Real-time dynamic route analysis tool for QGIS that calculates vertex angles and segment lengths in meters using automatic CRS detection and UTM projection handling.
-about = about = The plugin dynamically updates vertex angles and segment distances in real time when geometry is modified. It intelligently handles projected and geographic coordinate systems by applying automatic UTM reprojection when necessary. Key Features include real-time vertex angle calculation, segment length calculation in meters, dynamic UTM zone selection (North/South hemisphere support), and optimization for engineering workflows and transmission line routing.
-version = 1.1.0
+
+about = Dynamically updates vertex angles and segment distances in real time when geometry is modified. Automatically handles projected and geographic coordinate systems using intelligent UTM reprojection. Designed for engineering workflows and transmission line route validation.
+
 author = Vicky Sharma
 email = vsharma@powergrid.in
-tags = UTM, route, transmission, distance, angle, engineering, dynamic, measurement, GIS, QGIS
 repository = https://github.com/ineffablexd/dynamic_route_analyser
+homepage = https://github.com/ineffablexd/dynamic_route_analyser
+tracker = https://github.com/ineffablexd/dynamic_route_analyser/issues
+license = GPL-2.0-or-later
 icon = icon.png
+tags = utm, route, transmission, distance, angle, engineering, dynamic, measurement, gis
 experimental = False
 deprecated = False

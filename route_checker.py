@@ -1,9 +1,22 @@
+'''Tower Spotter - QGIS Plugin
+Copyright (C) 2026 Vicky Sharma
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+See the GNU General Public License for more details.'''
 
 import math
 from qgis.PyQt.QtCore import QVariant
-from qgis.PyQt.QtWidgets import QAction, QInputDialog, QMessageBox
+from qgis.PyQt.QtWidgets import QAction, QInputDialog, QMessageBox, QToolBar
 from qgis.core import *
 from qgis.PyQt.QtGui import QFont, QColor
+
 
 class dynamicRouteChecker:
 
@@ -13,15 +26,31 @@ class dynamicRouteChecker:
         self.active = False
         self.point_layer = None
         self.segment_layer = None
+        self.toolbar = None
+        self.action = None
+
+    # ------------------ GUI ------------------ #
 
     def initGui(self):
+
+        
+        self.toolbar = self.iface.mainWindow().findChild(QToolBar, "IneffableTools")
+
+        if not self.toolbar:
+            self.toolbar = self.iface.addToolBar("Ineffable Tools")
+            self.toolbar.setObjectName("IneffableTools")
+
         self.action = QAction("Dynamic Route Checker", self.iface.mainWindow())
         self.action.setCheckable(True)
         self.action.toggled.connect(self.toggle)
-        self.iface.addToolBarIcon(self.action)
+
+        self.toolbar.addAction(self.action)
 
     def unload(self):
-        self.iface.removeToolBarIcon(self.action)
+        if self.toolbar and self.action:
+            self.toolbar.removeAction(self.action)
+
+    # ------------------ TOGGLE ------------------ #
 
     def toggle(self, state):
         if state:
@@ -29,11 +58,14 @@ class dynamicRouteChecker:
         else:
             self.stop()
 
+    # ------------------ START ------------------ #
+
     def start(self):
 
         layers = []
         for l in QgsProject.instance().mapLayers().values():
-            if l.type() == QgsMapLayerType.VectorLayer and                l.geometryType() == QgsWkbTypes.LineGeometry:
+            if l.type() == QgsMapLayerType.VectorLayer and \
+               l.geometryType() == QgsWkbTypes.LineGeometry:
                 layers.append(l)
 
         if not layers:
@@ -42,8 +74,15 @@ class dynamicRouteChecker:
             return
 
         items = [l.name() for l in layers]
-        name, ok = QInputDialog.getItem(None, "Select Line Layer",
-                                        "Choose layer:", items, 0, False)
+        name, ok = QInputDialog.getItem(
+            None,
+            "Select Line Layer",
+            "Choose layer:",
+            items,
+            0,
+            False
+        )
+
         if not ok:
             self.action.setChecked(False)
             return
@@ -55,6 +94,8 @@ class dynamicRouteChecker:
         self.connect_signals()
         self.update_layers()
 
+    # ------------------ STOP ------------------ #
+
     def stop(self):
         self.active = False
         self.disconnect_signals()
@@ -63,6 +104,8 @@ class dynamicRouteChecker:
             QgsProject.instance().removeMapLayer(self.point_layer.id())
         if self.segment_layer:
             QgsProject.instance().removeMapLayer(self.segment_layer.id())
+
+    # ------------------ SIGNALS ------------------ #
 
     def connect_signals(self):
         self.layer.geometryChanged.connect(self.update_layers)
@@ -76,6 +119,8 @@ class dynamicRouteChecker:
             self.layer.featureDeleted.disconnect(self.update_layers)
         except:
             pass
+
+    # ------------------ MEMORY LAYERS ------------------ #
 
     def create_layers(self):
 
@@ -100,6 +145,8 @@ class dynamicRouteChecker:
         QgsProject.instance().addMapLayer(self.segment_layer)
 
         self.setup_labels()
+
+    # ------------------ LABELS ------------------ #
 
     def setup_labels(self):
 
@@ -129,6 +176,8 @@ class dynamicRouteChecker:
         self.segment_layer.setLabeling(QgsVectorLayerSimpleLabeling(seg_label))
         self.segment_layer.setLabelsEnabled(True)
 
+    # ------------------ UPDATE ------------------ #
+
     def update_layers(self, *args):
 
         if not self.active:
@@ -144,14 +193,12 @@ class dynamicRouteChecker:
 
         for feat in self.layer.getFeatures():
             geom = feat.geometry()
-
             crs = self.layer.crs()
 
             if crs.mapUnits() == QgsUnitTypes.DistanceMeters:
                 geom_projected = QgsGeometry(geom)
-
+                transform_to_utm = None
             else:
-               
                 center = geom.boundingBox().center()
 
                 transform_to_wgs = QgsCoordinateTransform(
@@ -161,7 +208,6 @@ class dynamicRouteChecker:
                 )
 
                 center_wgs = transform_to_wgs.transform(center)
-
                 zone = int((center_wgs.x() + 180) / 6) + 1
                 epsg = f"EPSG:326{zone:02d}" if center_wgs.y() >= 0 else f"EPSG:327{zone:02d}"
 
@@ -181,24 +227,30 @@ class dynamicRouteChecker:
             if len(vertices) < 2:
                 continue
 
-            for i in range(1, len(vertices)-1):
-                angle = self.calculate_angle(vertices[i-1], vertices[i], vertices[i+1])
+            for i in range(1, len(vertices) - 1):
+                angle = self.calculate_angle(vertices[i - 1], vertices[i], vertices[i + 1])
+
+                pt = vertices[i]
+                if transform_to_utm:
+                    pt = transform_to_utm.transform(pt, QgsCoordinateTransform.ReverseTransform)
+
                 f = QgsFeature(self.point_layer.fields())
-                f.setGeometry(QgsGeometry.fromPointXY(transform_to_utm.transform(vertices[i], QgsCoordinateTransform.ReverseTransform)))
-                f.setAttribute("angle", round(angle,2))
+                f.setGeometry(QgsGeometry.fromPointXY(pt))
+                f.setAttribute("angle", round(angle, 2))
                 point_feats.append(f)
 
-            for i in range(len(vertices)-1):
+            for i in range(len(vertices) - 1):
                 p1 = vertices[i]
-                p2 = vertices[i+1]
+                p2 = vertices[i + 1]
                 dist = math.hypot(p2.x() - p1.x(), p2.y() - p1.y())
 
-                orig_p1 = transform_to_utm.transform(p1, QgsCoordinateTransform.ReverseTransform)
-                orig_p2 = transform_to_utm.transform(p2, QgsCoordinateTransform.ReverseTransform)
+                if transform_to_utm:
+                    p1 = transform_to_utm.transform(p1, QgsCoordinateTransform.ReverseTransform)
+                    p2 = transform_to_utm.transform(p2, QgsCoordinateTransform.ReverseTransform)
 
                 f2 = QgsFeature(self.segment_layer.fields())
-                f2.setGeometry(QgsGeometry.fromPolylineXY([orig_p1, orig_p2]))
-                f2.setAttribute("distance_m", round(dist,2))
+                f2.setGeometry(QgsGeometry.fromPolylineXY([p1, p2]))
+                f2.setAttribute("distance_m", round(dist, 2))
                 seg_feats.append(f2)
 
         self.point_layer.dataProvider().addFeatures(point_feats)
@@ -206,9 +258,10 @@ class dynamicRouteChecker:
 
         self.point_layer.updateExtents()
         self.segment_layer.updateExtents()
-
         self.point_layer.triggerRepaint()
         self.segment_layer.triggerRepaint()
+
+    # ------------------ MATH ------------------ #
 
     def compute_azimuth(self, p1, p2):
         angle_rad = math.atan2(p2.y() - p1.y(), p2.x() - p1.x())
