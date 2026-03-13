@@ -11,11 +11,12 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 See the GNU General Public License for more details.'''
 
+import os
 import math
 from qgis.PyQt.QtCore import QVariant
-from qgis.PyQt.QtWidgets import QAction, QInputDialog, QMessageBox, QToolBar
+from qgis.PyQt.QtWidgets import QAction, QInputDialog, QMessageBox, QToolBar, QMenu
 from qgis.core import *
-from qgis.PyQt.QtGui import QFont, QColor
+from qgis.PyQt.QtGui import QFont, QColor, QIcon
 
 
 class dynamicRouteChecker:
@@ -28,27 +29,47 @@ class dynamicRouteChecker:
         self.segment_layer = None
         self.toolbar = None
         self.action = None
+        self.menu_name = "Ineffable Tools"
 
     # ------------------ GUI ------------------ #
 
     def initGui(self):
-
-        
-        self.toolbar = self.iface.mainWindow().findChild(QToolBar, "IneffableTools")
-
-        if not self.toolbar:
-            self.toolbar = self.iface.addToolBar("Ineffable Tools")
-            self.toolbar.setObjectName("IneffableTools")
-
-        self.action = QAction("Dynamic Route Checker", self.iface.mainWindow())
+        # 1. Setup icon and action
+        icon_path = os.path.join(os.path.dirname(__file__), 'icon.png')
+        self.action = QAction(
+            QIcon(icon_path), 
+            "Dynamic Route Checker", 
+            self.iface.mainWindow()
+        )
         self.action.setCheckable(True)
         self.action.toggled.connect(self.toggle)
 
-        self.toolbar.addAction(self.action)
+        # 2. Add to "Ineffable Tools" menu
+        main_menu = self.iface.mainWindow().menuBar()
+        found_menu = None
+        
+        # Find existing "Ineffable Tools" menu
+        for action in main_menu.actions():
+            if action.text() == self.menu_name:
+                found_menu = action.menu()
+                break
+        
+        # Create it if it doesn't exist
+        if not found_menu:
+            found_menu = QMenu(self.menu_name, self.iface.mainWindow())
+            main_menu.addMenu(found_menu)
+            
+        found_menu.addAction(self.action)
 
     def unload(self):
-        if self.toolbar and self.action:
-            self.toolbar.removeAction(self.action)
+        # Remove action from menu
+        main_menu = self.iface.mainWindow().menuBar()
+        for action in main_menu.actions():
+            if action.text() == self.menu_name:
+                menu = action.menu()
+                if menu:
+                    menu.removeAction(self.action)
+                break
 
     # ------------------ TOGGLE ------------------ #
 
